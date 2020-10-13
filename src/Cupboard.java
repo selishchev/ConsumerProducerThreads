@@ -24,4 +24,8 @@ public class Cupboard {
     public void setNumOfSections(int numOfSections) {
         this.numOfSections = numOfSections;
     }
+
+    public String getInfo() {
+        return height + length + width + color + numOfSections;
+    }
 }
