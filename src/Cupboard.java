@@ -26,6 +26,7 @@ public class Cupboard {
     }
 
     public String getInfo() {
-        return height + length + width + color + numOfSections;
+        return "Height: " + height + " " + "Length: " + length + " " + "Width: " + width + " " +
+                "Color: " + color + " " + "Amount of sections: " + numOfSections;
     }
 }

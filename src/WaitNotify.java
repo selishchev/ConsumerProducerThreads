@@ -1,89 +1,111 @@
+import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class WaitNotify {
-    // --------------------------------------------------------
-    // объект хранения данных, член data является монитором
-    // через который общаются поток производителя и поток потребителя
     public static class TaskData {
-        private final ConcurrentLinkedDeque data = new ConcurrentLinkedDeque<String>();
-        public String getData() {
+        private int count;
+        private final int time;
+        private final int bufferSize;
+        private final ConcurrentLinkedDeque<Cupboard> data = new ConcurrentLinkedDeque<>();
+        private final CupboardBuilder builder = new CupboardBuilderImpl();
+        private final String[] colors = {"brown", "red", "yellow", "green", "blue"};
+        public TaskData (int time, int bufferSize) {
+            this.time = time;
+            this.bufferSize = bufferSize;
+        }
+        public Cupboard getData() {
             synchronized (data) {
                 try {
+                    System.out.println("size3: " + data.size());
                     if (data.size() == 0) {
-                        // ожидаем появление данных полторы секунды
-                        data.wait(500);
+                        int min = 200;
+                        int diff = 1001 - min;
+                        Random random = new Random();
+                        int i = random.nextInt(diff);
+                        i += min;
+                        count += i;
+                        System.out.println(i);
+                        data.wait(i);
                     }
+                    System.out.println("size4: " + data.size());
                 } catch (Exception e) {
+                    e.printStackTrace(System.out);
                 }
-                return (String) data.poll();
+                return data.poll();
             }
         }
 
-        public void putData(String s) {
+        public void putData() {
             synchronized (data) {
-                data.add(s);
-                // уведомляем ожидающий поток о появлении данных для обработки
-                data.notify();
+                System.out.println("size1: " + data.size());
+                if (data.size() < bufferSize) {
+                    int min = 100;
+                    int diff = 251 - min;
+                    Random random = new Random();
+                    int a = random.nextInt(diff);
+                    a += min;
+                    int b = random.nextInt(diff);
+                    b += min;
+                    int c = random.nextInt(diff);
+                    c += min;
+                    Cupboard cupboard = builder
+                            .height(a)
+                            .length(b)
+                            .width(c)
+                            .color(colors[random.nextInt(5)])
+                            .numOfSections(random.nextInt(10) + 1)
+                            .build();
+                    data.add(cupboard);
+                    System.out.println("Producer put item: " + cupboard.getInfo());
+                }
+                System.out.println("size2: " + data.size());
             }
-            // попробуйте вынести уведомление за блок синхронизации
-            // ошибки не будет, но и работать как ожидалось не будет
-            // data.notify();
         }
     }
-    // --------------------------------------------------------
-    // задача производителя - порождает данные, это может занимать
-    // вполне заметное время (закачка данных из интернета/разбор текста/тп)
-    //
+
     public static class Producer implements Runnable {
         private final TaskData dest;
         int checking = 0;
+
         public Producer(TaskData dest) {
             this.dest = dest;
         }
+
         @Override
         public void run() {
             try {
-                while (checking < 20){
-                    dest.putData("produced - ");
-                    System.out.println(checking);
-                    Thread.sleep(500); // засыпаем на секунду
+                while (checking < dest.time * 2){
+                    dest.putData();
+                    Thread.sleep(500);
                     checking++;
                 }
             } catch (Exception e) {
+                e.printStackTrace(System.out);
             }
             System.out.println("Producer thread finished");
         }
     }
-    // --------------------------------------------------------
-    // задача потребителя - как только появляются доступные данные, что-то делает с ними
-    // потребитель автоматически завершает работу, если 3 раза подряд он не получил данные
+
     public static class Consumer implements Runnable {
         final TaskData data;
-        int checking = 0;
+
         public Consumer(TaskData data) {
             this.data = data;
         }
+
         @Override
         public void run() {
-            String s;
-            while (checking < 6) {
-                s = data.getData();
-                if (s == null) {
-                    checking++;
-                    System.out.println("Consumer timeout: " + checking);
+            Cupboard cupboard;
+            while (data.count < data.time * 1000) {
+                cupboard = data.getData();
+                if (cupboard == null) {
+                    System.out.println("Consumer timeout");
                 } else {
-                    System.out.println("Consumer get item: " + s);
-                    checking=0;
+                    System.out.println("Consumer got item: " + cupboard.getInfo());
                 }
             }
-            System.out.println("Cosumer thread finished");
+            System.out.println("Consumer thread finished");
         }
-    }
-
-    public static void main(String[] args) {
-        int count = 10;
-        TaskData data = new TaskData();
-        new Thread(new Producer(data)).start();
-        new Thread(new Consumer(data)).start();
     }
 }
